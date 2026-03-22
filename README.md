@@ -216,8 +216,8 @@ curl http://localhost:11434   # should return "Ollama is running"
 ### 3. Clone / download the project
 
 ```bash
-git clone https://github.com/your-org/legal-analyzer.git
-cd legal-analyzer
+git clone https://github.com/Chaitali-24csu246/Legislative-analyser
+cd Legislative-analyzer
 ```
 
 ### 4. Create a virtual environment
