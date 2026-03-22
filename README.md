@@ -216,8 +216,12 @@ curl http://localhost:11434   # should return "Ollama is running"
 ### 3. Clone / download the project
 
 ```bash
+# Navigate to where you want the project first
+cd path/to/your/folder        # e.g. cd Documents  or  cd D:\Projects
+
+# Then clone — it will create the folder there
 git clone https://github.com/Chaitali-24csu246/Legislative-analyser
-cd Legislative-analyzer
+cd Legislative-analyserr
 ```
 
 ### 4. Create a virtual environment
