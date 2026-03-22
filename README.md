@@ -1,8 +1,9 @@
-# ⚖️ Legal Document Analyzer
+# Legal Document Analyzer
 
-> **AI-assisted legal document review. Not a substitute for qualified legal advice.**
+> **AI-assisted legal document review. Please note that this is not a substitute for qualified legal advice**
 
-A local-first, privacy-preserving legal document analyzer built with **Streamlit**, **LangGraph**, and **Ollama**. Upload a contract or legal PDF and get an executive summary, flagged risks, and improvement suggestions — all processed on your own machine, with no data sent to external APIs.
+A local, legal document analyzer built with **Streamlit**, **LangGraph**, and **Ollama**. Upload a contract or legal PDF and get an executive summary, flagged risks, and improvement suggestions.
+Everything is processed on your own machine, no data is sent to external APIs.
 
 ---
 
