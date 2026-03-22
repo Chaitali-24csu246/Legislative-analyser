@@ -16,7 +16,7 @@ Everything is processed on your own machine, no data is sent to external APIs.
 Processing might take some time so please be patient.
  ## Use this url to go on huggingface deployed app
  https://huggingface.co/spaces/Chaitali-24csu246/Legislative-Analyser
- Please note that file uploads on huggingface are not always reliable, and if it shows file upload error 403, please manually setup as given   below
+ Please note that HuggingFace will take more time than locally running, please be patient while it analyses. Speed is much faster locally. If it takes too long please test manually instead. 
 
 ---
 
