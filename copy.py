@@ -1,25 +1,6 @@
-"""
-Legal Document Analyzer
-━━━━━━━━━━━━━━━━━━━━━━━
-Token compression pipeline (4 layers):
-  1. Noise strip      — removes PDF artifacts, page numbers, whitespace waste (~10-15%)
-  2. Dedup            — removes repeated boilerplate paragraphs (~5-10% on long docs)
-  3. Semantic chunking — splits on legal headers → paragraphs → hard window fallback
-  4. Keyword routing  — scores chunks by relevance, sends only top-N to each node
 
-Accuracy preservation:
-  - Summary uses map-reduce: every chunk is seen, nothing dropped
-  - Risks/suggestions use scored routing: most relevant chunks always included
-  - Fallback to full doc when no keywords match (generic docs)
-  - Mini-summary cap prevents synthesis prompt overflow
-
-Parallelism:
-  - chunk → [summarize | risks | suggestions] → compile  (fan-out/fan-in)
-  - summarize map phase uses ThreadPoolExecutor
-"""
-
-import os
 import re
+import os
 import hashlib
 import tempfile
 from textwrap import dedent
@@ -32,16 +13,19 @@ from langchain_ollama import ChatOllama
 from langgraph.graph import END, StateGraph
 import pymupdf4llm
 
-# ══════════════════════════════════════════════
+
 # Configuration
-# ══════════════════════════════════════════════
+
+
 load_dotenv()
 
 DEFAULT_MODEL        = "llama3.2:3b"
+
 OLLAMA_BASE_URL      = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 
 # Chunking — 1,200 words ≈ 1,600 tokens, safe for llama3.2's 4k context
 # leaving headroom for the prompt template and output
+
 CHUNK_WORD_LIMIT     = 1_200
 
 # Keyword routing — how many top-scored chunks each node receives
@@ -59,11 +43,12 @@ SUMMARY_TEMP         = 0.2
 RISKS_TEMP           = 0.15
 SUGGEST_TEMP         = 0.3
 
-# ══════════════════════════════════════════════
+
 # Keyword routing tables (stem-based)
-# ══════════════════════════════════════════════
+
+
 RISK_KEYWORDS = [
-    "liabilit", "indemnif", "warrant", "terminat", "breach",
+    "liability","liabilit", "indemnif", "warrant", "terminat", "breach",
     "penalt", "damage", "default", "governing law", "force majeure",
     "consequential", "negligenc", "represent", "remedy", "forfeit",
     "insolvenc", "bankrupt", "infring", "misappropriat", "disclaim",
@@ -76,9 +61,9 @@ SUGGEST_KEYWORDS = [
     "data protection", "privac", "govern",
 ]
 
-# ══════════════════════════════════════════════
-# Noise patterns — stripped before chunking
-# ══════════════════════════════════════════════
+
+# Noise pattern break before chunking
+
 _NOISE_LINE_RE = re.compile(
     r"^\s*("
     r"[-─═]{3,}"                        # horizontal rules
@@ -92,9 +77,10 @@ _NOISE_LINE_RE = re.compile(
     re.IGNORECASE,
 )
 
-# ══════════════════════════════════════════════
+
+
 # State
-# ══════════════════════════════════════════════
+
 class AgentState(TypedDict, total=False):
     original_text : str
     clean_text    : str
@@ -106,16 +92,16 @@ class AgentState(TypedDict, total=False):
     validation    : Dict[str, Any]
     meta          : Dict[str, Any]
 
-# ══════════════════════════════════════════════
+
 # Session
-# ══════════════════════════════════════════════
 def ensure_session_defaults():
     st.session_state.setdefault("model", DEFAULT_MODEL)
     st.session_state.setdefault("results_by_hash", {})
 
-# ══════════════════════════════════════════════
+
+
 # LLM
-# ══════════════════════════════════════════════
+
 def get_llm(temperature: float) -> ChatOllama:
     return ChatOllama(
         model=st.session_state.get("model", DEFAULT_MODEL),
@@ -130,25 +116,24 @@ def call_llm(prompt: str, temperature: float) -> str:
     except Exception as e:
         err = str(e)
         if "404" in err or "not found" in err.lower():
+            
             m = st.session_state.get("model", DEFAULT_MODEL)
             return f"[LLM ERROR: Model '{m}' not found — run: ollama pull {m}]"
         return f"[LLM ERROR: {err}]"
 
-# ══════════════════════════════════════════════
+#
 # Helpers
-# ══════════════════════════════════════════════
 def _wc(text: str) -> int:
     return len(text.split())
-
 def file_hash(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
-# ══════════════════════════════════════════════
+#231
 # Layer 1 — Noise stripping
 # Removes PDF extraction artifacts that waste tokens
-# without carrying any legal meaning.
-# Typical saving: 10–20% on real legal PDFs.
-# ══════════════════════════════════════════════
+# without carrying any legal meaning
+# Typical saving: 0% to 10% 
+
 def strip_noise(text: str) -> str:
     lines = text.splitlines()
     clean = [l for l in lines if not _NOISE_LINE_RE.match(l)]
@@ -163,13 +148,14 @@ def strip_noise(text: str) -> str:
 
     return text.strip()
 
-# ══════════════════════════════════════════════
+
 # Layer 2 — Deduplication
 # Legal docs repeat boilerplate (definitions,
 # recitals, notice clauses). Removes exact
-# duplicate paragraphs while preserving order.
-# Typical saving: 5–15% on long contracts.
-# ══════════════════════════════════════════════
+# duplicate paragraphs while preserving order
+# Typical saving: 5–15% on long contracts
+# 246
+
 def dedup_paragraphs(text: str) -> str:
     paras = re.split(r"\n\s*\n", text)
     seen, result = set(), []
@@ -178,14 +164,18 @@ def dedup_paragraphs(text: str) -> str:
         key = re.sub(r"\s+", " ", p.strip().lower())
         if len(key) < 40:
             # Keep short paragraphs always (headings, labels)
+            #result.append(s)
             result.append(p)
             continue
         if key not in seen:
+            #pass
+            #break
+            #check online
             seen.add(key)
             result.append(p)
     return "\n\n".join(result)
 
-# ══════════════════════════════════════════════
+
 # Layer 3 — Semantic chunking
 # Priority order:
 #   1. Formal legal headers (ARTICLE, SECTION…)
@@ -194,8 +184,10 @@ def dedup_paragraphs(text: str) -> str:
 #   4. Paragraph boundaries
 #   5. Hard word-window (last resort)
 # Handles generic docs, NDAs, employment
-# contracts, and formal agreements equally.
-# ══════════════════════════════════════════════
+# contracts, and formal agreements equally
+
+
+
 def chunk_document(text: str) -> List[str]:
     # Try progressively looser split patterns until we get > 1 section
     patterns = [
@@ -218,13 +210,15 @@ def chunk_document(text: str) -> List[str]:
             raw_sections = candidate
             break
 
-    # Now enforce CHUNK_WORD_LIMIT on each section
+    # enforcing CHUNK_WORD_LIMIT on each section
     chunks: List[str] = []
     for sec in raw_sections:
         sec = sec.strip()
+        
         if not sec:
             continue
         if _wc(sec) <= CHUNK_WORD_LIMIT:
+            
             chunks.append(sec)
         else:
             # Section too long — split on paragraphs
@@ -258,21 +252,24 @@ def chunk_document(text: str) -> List[str]:
 
     return [c for c in merged if c.strip()]
 
-# ══════════════════════════════════════════════
+
 # Layer 4 — Keyword routing
-# Scores every chunk by keyword frequency,
-# returns top-N most relevant chunks.
+# Scores every chunk by keyword frequency
+# returns top-N most relevant chunks
 # Falls back to all chunks on zero matches
-# (generic docs, non-standard language).
-# ══════════════════════════════════════════════
+# (generic docs, non-standard language)
+
+
 def route_chunks(
     chunks: List[str],
     keywords: List[str],
+    #keyphrase: List[str]
     max_chunks: int,
 ) -> Tuple[List[str], bool]:
     scored = []
     for chunk in chunks:
         lower = chunk.lower()
+        #lower2=c.lower()
         score = sum(lower.count(kw.lower()) for kw in keywords)
         scored.append((score, chunk))
 
@@ -284,11 +281,25 @@ def route_chunks(
     # Fallback — no keywords matched at all
     return chunks[:max_chunks], True
 
-# ══════════════════════════════════════════════
+
 # Validation
 # Wide signal nets — llama3.2 paraphrases
 # heavily, so we check intent not exact words.
-# ══════════════════════════════════════════════
+
+'''
+VALIDATION_SIGNALS = {
+    "summary": [
+        "party", "agreement", "shall","suggest", "term",
+        "-", "•", "*", "1.",
+    ],
+    "risks": [
+        "risk", "concern", "issue", "problem"
+    ],
+    "suggestions": [
+        "should", "could", "recommend", "consider", "add", "include",
+        "protect", "provide", "clear", "explicit", "update",
+    ],
+}'''
 VALIDATION_SIGNALS = {
     "summary": [
         "party", "agree", "shall", "term", "payment", "right",
@@ -326,9 +337,10 @@ def validate_output(field: str, content: str) -> Dict[str, Any]:
 def validate_all(state: AgentState) -> Dict[str, Any]:
     return {k: validate_output(k, state.get(k, "")) for k in ("summary", "risks", "suggestions")}
 
-# ══════════════════════════════════════════════
+# Doc loading functions
 # Document loading
-# ══════════════════════════════════════════════
+
+
 def load_doc(uploaded_file) -> str:
     data   = uploaded_file.getvalue()
     suffix = uploaded_file.name.rsplit(".", 1)[-1].lower()
@@ -359,18 +371,19 @@ def load_doc(uploaded_file) -> str:
 
     return text
 
-# ══════════════════════════════════════════════
+
 # Preprocessing node
 # Runs all 4 compression layers once,
-# stores results in state for all downstream nodes.
-# ══════════════════════════════════════════════
+# stores results in state for all downstream nodes
+
+
 def preprocess_node(state: AgentState) -> Dict[str, Any]:
     raw    = state["original_text"]
-    # Layer 1: noise strip
+    # L1
     clean  = strip_noise(raw)
-    # Layer 2: dedup
+    # L2
     clean  = dedup_paragraphs(clean)
-    # Layer 3: chunk
+    # L3
     chunks = chunk_document(clean)
 
     raw_wc   = _wc(raw)
@@ -388,17 +401,27 @@ def preprocess_node(state: AgentState) -> Dict[str, Any]:
 
     return {"clean_text": clean, "chunks": chunks, "meta": meta}
 
-# ══════════════════════════════════════════════
-# Summary node — map-reduce
+
+# Summary node  map reduce
 # Every chunk is summarised (map, parallel),
 # then synthesised into one output (reduce).
 # Nothing is dropped for accuracy.
-# ══════════════════════════════════════════════
+
+
 def summarize_node(state: AgentState) -> Dict[str, Any]:
     chunks = state.get("chunks") or chunk_document(state.get("clean_text", state["original_text"]))
 
     # Single chunk shortcut — skip map phase
     if len(chunks) == 1:
+        '''
+        prompt = dedent(f"""
+        Act as a legal assistant. Summarize this entire document.
+        so that anyone can understand it simply and easily.
+
+        Document:
+        {chunks[0]}
+        """)
+        '''
         prompt = dedent(f"""
         You are a legal assistant. Summarize this document in 8–10 bullet points.
         Each bullet covers one obligation, right, key term, or monetary value.
@@ -468,11 +491,17 @@ def summarize_node(state: AgentState) -> Dict[str, Any]:
 
     return {"summary": call_llm(reduce_prompt, SUMMARY_TEMP)}
 
-# ══════════════════════════════════════════════
+
+
+
+
+
+
 # Risks node
-# Layer 4 routing: top-scored chunks only.
-# Fallback to all chunks if no keywords match.
-# ══════════════════════════════════════════════
+# Layer 4 routing: top scored chunks only.
+# Fallback to al chunks if no keywords match
+
+
 def analyze_risks_node(state: AgentState) -> Dict[str, Any]:
     chunks = state.get("chunks") or chunk_document(state.get("clean_text", state["original_text"]))
     selected, was_fallback = route_chunks(chunks, RISK_KEYWORDS, MAX_RISK_CHUNKS)
@@ -502,10 +531,13 @@ def analyze_risks_node(state: AgentState) -> Dict[str, Any]:
 
     return {"risks": call_llm(prompt, RISKS_TEMP)}
 
-# ══════════════════════════════════════════════
+
+
 # Suggestions node
 # Layer 4 routing: top-scored chunks only.
-# ══════════════════════════════════════════════
+
+
+
 def suggest_improvements_node(state: AgentState) -> Dict[str, Any]:
     chunks = state.get("chunks") or chunk_document(state.get("clean_text", state["original_text"]))
     selected, was_fallback = route_chunks(chunks, SUGGEST_KEYWORDS, MAX_SUGGEST_CHUNKS)
@@ -535,9 +567,9 @@ def suggest_improvements_node(state: AgentState) -> Dict[str, Any]:
 
     return {"suggestions": call_llm(prompt, SUGGEST_TEMP)}
 
-# ══════════════════════════════════════════════
+
 # Compile node
-# ══════════════════════════════════════════════
+
 def compile_report_node(state: AgentState) -> Dict[str, Any]:
     validation = validate_all(state)
     meta       = state.get("meta", {})
@@ -545,10 +577,10 @@ def compile_report_node(state: AgentState) -> Dict[str, Any]:
     warnings = ""
     for field, result in validation.items():
         if not result["ok"]:
-            warnings += f"\n> ⚠️ **{field.title()}**: {result['reason']}"
+            warnings += f"\n> **{field.title()}**: {result['reason']}"
 
     compression_line = (
-        f"\n> 📊 {meta['raw_words']:,} words → {meta['clean_words']:,} after compression "
+        f"\n>  {meta['raw_words']:,} words → {meta['clean_words']:,} after compression "
         f"({meta['compression']} removed) · {meta['chunks']} chunks\n"
         if meta else ""
     )
@@ -561,17 +593,17 @@ def compile_report_node(state: AgentState) -> Dict[str, Any]:
 
     ---
 
-    ## 📝 Executive Summary
+    ##  Executive Summary
     {state.get("summary") or "_Not generated_"}
 
     ---
 
-    ## ⚠️ Identified Risks
+    ##  Identified Risks
     {state.get("risks") or "_Not generated_"}
 
     ---
 
-    ## 💡 Suggestions for Improvement
+    ##  Suggestions for Improvement
     {state.get("suggestions") or "_Not generated_"}
     """).strip()
 
@@ -724,9 +756,10 @@ hr { border-color: var(--border) !important; }
 </style>
 """
 
-# ══════════════════════════════════════════════
+
 # UI helpers
-# ══════════════════════════════════════════════
+
+
 def render_metric(label: str, value: str):
     st.markdown(
         f'<div class="metric-card">'
@@ -756,7 +789,7 @@ def render_validation_badge(field: str, result: Dict[str, Any]):
         st.markdown(f'<span class="badge-fail">✗ {field.title()} — {result["reason"]}</span>', unsafe_allow_html=True)
 
 def render_sidebar():
-    st.markdown("### ⚖️ Legal Analyzer")
+    st.markdown("###  Legal Analyzer")
     st.markdown(
         '<span style="font-family:\'DM Mono\',monospace;font-size:0.7rem;color:#7a7d8a;">'
         'AI-ASSISTED · NOT LEGAL ADVICE</span>',
@@ -793,7 +826,7 @@ def render_sidebar():
 # Analysis runner
 # ══════════════════════════════════════════════
 def run_analysis(uploaded_file, h: str):
-    prog = st.progress(0, text="📄 Extracting text…")
+    prog = st.progress(0, text=" Extracting text…")
     doc_text = load_doc(uploaded_file)
     if not doc_text:
         prog.empty()
@@ -824,13 +857,13 @@ def run_analysis(uploaded_file, h: str):
     with st.expander("Document preview (first 30 lines — post-clean)"):
         st.markdown("\n".join(clean.splitlines()[:30]) or "_No content_")
 
-    prog.progress(30, text="⚙️ Running parallel agents…")
+    prog.progress(30, text=" Running parallel agents…")
 
-    with st.spinner("🤖 Summarising · risks · suggestions (parallel)…"):
-        prog.progress(45, text="🔄 Agents running…")
+    with st.spinner(" Summarising · risks · suggestions (parallel)…"):
+        prog.progress(45, text=" Agents running…")
         result = get_workflow().invoke({"original_text": doc_text})
 
-    prog.progress(92, text="✅ Validating…")
+    prog.progress(92, text=" Validating…")
     validation = result.get("validation") or validate_all(result)
     prog.progress(100, text="Complete.")
 
@@ -856,7 +889,7 @@ def display_results(h: str):
     st.markdown("")
 
     summary_tab, risks_tab, suggest_tab, report_tab = st.tabs(
-        ["📝 SUMMARY", "⚠️ RISKS", "💡 SUGGESTIONS", "📄 FULL REPORT"]
+        [" SUMMARY", " RISKS", " SUGGESTIONS", " FULL REPORT"]
     )
     with summary_tab:
         st.markdown(result.get("summary") or "_Not generated_")
@@ -906,7 +939,7 @@ def main():
         if st.button("⚡ Analyze Document"):
             run_analysis(uploaded_file, h)
     with col_b:
-        if st.button("🗑 Clear Cache") and h in st.session_state.results_by_hash:
+        if st.button(" Clear Cache") and h in st.session_state.results_by_hash:
             del st.session_state.results_by_hash[h]
             st.rerun()
 
