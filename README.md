@@ -254,7 +254,7 @@ The default is `http://localhost:11434` — you only need this file if you've ch
 ### 7. Run the app
 
 ```bash
-streamlit run app.py
+streamlit run app2.py
 ```
 
 Open **http://localhost:8501** in your browser.
