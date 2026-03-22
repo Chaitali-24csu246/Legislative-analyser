@@ -895,34 +895,33 @@ def main():
     )
 
     if not uploaded_file:
-    st.markdown("""
-    ### Get Started
+        st.markdown("""
+        ### Get Started
 
-    This app runs **100% locally** on your machine — your documents never leave your device.
+        This app runs **100% locally** on your machine — your documents never leave your device.
 
-    To use it, you need **Ollama** running in the background:
+        To use it, you need **Ollama** running in the background:
 
-    **Step 1 — Install Ollama**  
-    👉 [Download Ollama](https://ollama.com/download) — available for Mac, Windows, and Linux.
+        **Step 1 — Install Ollama**  
+        👉 [Download Ollama](https://ollama.com/download) — available for Mac, Windows, and Linux.
 
-    **Step 2 — Pull a model** (run this in your terminal after installing):
+        **Step 2 — Pull a model** (run this in your terminal after installing):
 ```bash
-    ollama pull llama3.2:3b
+        ollama pull llama3.2:3b
 ```
 
-    **Step 3 — Run this app locally:**
+        **Step 3 — Run this app locally:**
 ```bash
-    pip install -r requirements.txt
-    streamlit run app.py
+        pip install -r requirements.txt
+        streamlit run app.py
 ```
 
-    Once Ollama is running, come back here, upload a PDF or TXT contract, and hit **Analyze**.
+        Once Ollama is running, come back here, upload a PDF or TXT contract, and hit **Analyze**.
 
-    ---
-    *Already set up? Upload a document in the sidebar to begin.*
-    """)
-    return
-
+        ---
+        *Already set up? Upload a document in the sidebar to begin.*
+        """)
+        return
     data = uploaded_file.getvalue()
     h    = file_hash(data)
 
