@@ -192,6 +192,8 @@ curl -fsSL https://ollama.com/install.sh | sh
 
 # Windows
 # Download from https://ollama.com/download
+irm https://ollama.com/install.ps1 | iex
+
 ```
 
 ### 2. Pull a model
