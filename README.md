@@ -221,7 +221,7 @@ cd path/to/your/folder        # e.g. cd Documents  or  cd D:\Projects
 
 # Then clone — it will create the folder there
 git clone https://github.com/Chaitali-24csu246/Legislative-analyser
-cd Legislative-analyserr
+cd Legislative-analyser
 ```
 
 ### 4. Create a virtual environment
