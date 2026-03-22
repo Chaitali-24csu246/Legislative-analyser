@@ -306,79 +306,44 @@ Results are cached by file hash — re-uploading the same document skips re-anal
 
 ## Deployment
 
-### Option A — Local (default)
+Deployed on HuggingFace as model was local. Use this link: https://huggingface.co/spaces/Chaitali-24csu246/Legislative-Analyser
+Please note that this is not always reliable, and you may face file upload issues (currently unable to resolve) , and if any issue persists, use manual setup on device.
+## Deployment
 
-Follow the setup instructions above. Everything runs on your machine.
+### Live Demo — HuggingFace Spaces
 
-### Option B — Docker
+The app is deployed and publicly accessible at:
 
-Create a `Dockerfile` in the project root:
+** [huggingface.co/spaces/Chaitali-24csu246/Legislative-Analyser](https://huggingface.co/spaces/Chaitali-24csu246/Legislative-Analyser)**
 
-```dockerfile
-FROM python:3.11-slim
+No downloads or setup required — just open the link and upload a document.
 
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+#### How it works
 
-COPY . .
+Ollama and Streamlit run together inside a Docker container on HuggingFace's servers. Users interact with the Streamlit UI; all LLM inference happens inside the container.
 
-EXPOSE 8501
-CMD ["streamlit", "run", "app.py", \
-     "--server.port=8501", \
-     "--server.address=0.0.0.0", \
-     "--server.headless=true"]
+```
+User's browser
+      │
+      ▼
+HuggingFace Space (Docker container)
+      ├── Ollama     — runs on localhost:11434 inside the container
+      └── Streamlit  — serves the UI on port 7860
 ```
 
-Build and run:
+#### Deployment files
 
-```bash
-docker build -t legal-analyzer .
+| File | Purpose |
+|---|---|
+| `Dockerfile` | Installs Python, curl, zstd, and Ollama |
+| `start.sh` | Starts Ollama, pulls the model, launches Streamlit |
+| `requirements.txt` | Python dependencies installed during Docker build |
+| `app2.py` | Main Streamlit application |
 
-# Point OLLAMA_BASE_URL at your host's Ollama instance
-docker run -p 8501:8501 \
-  -e OLLAMA_BASE_URL=http://host.docker.internal:11434 \
-  legal-analyzer
-```
-
-> **Note**: `host.docker.internal` resolves to your host machine on Docker Desktop (Mac/Windows). On Linux, use `--network=host` instead and set `OLLAMA_BASE_URL=http://localhost:11434`.
-
-### Option C — Streamlit Community Cloud
-
-> ⚠️ Streamlit Community Cloud has no persistent compute, so Ollama cannot run there. Use this option only if you host Ollama on a separate always-on server (e.g. a VPS or home server with a public URL).
-
-1. Push the repo to GitHub (public or private)
-2. Go to [share.streamlit.io](https://share.streamlit.io) → **New app**
-3. Select your repo, branch, and `app.py`
-4. Under **Advanced settings → Secrets**, add:
-   ```toml
-   OLLAMA_BASE_URL = "https://your-ollama-server.example.com"
-   ```
-5. Deploy
-
-### Option D — Self-hosted VPS (e.g. DigitalOcean, Hetzner, AWS EC2)
-
-```bash
-# On the server — install Ollama and pull model
-curl -fsSL https://ollama.com/install.sh | sh
-ollama pull llama3.2:3b
-
-# Clone and run
-git clone https://github.com/your-org/legal-analyzer.git
-cd legal-analyzer
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-
-# Run with nohup or use a systemd service / tmux session
-nohup streamlit run app.py \
-  --server.port=8501 \
-  --server.address=0.0.0.0 \
-  --server.headless=true &
-```
-
-Open port 8501 in your firewall/security group. For production, put **nginx** in front as a reverse proxy with HTTPS.
-
----
+#### Notes
+- First boot takes **5–10 minutes** to download the model (~2GB)
+- Free tier may **sleep after inactivity** — first visitor after sleep waits ~30s for wake-up
+- Hardware: 2 vCPU · 16GB RAM (free tier) — sufficient for `llama3.2:3b`
 
 ## Technical Reference
 
@@ -439,7 +404,7 @@ Scanned PDFs (image-only, no text layer) will return an error — convert them w
 
 ```
 legal-analyzer/
-├── app.py               # Main application (all logic + UI)
+├── app2.py               # Main application (all logic + UI)
 ├── requirements.txt     # Python dependencies
 ├── .env                 # Optional — override OLLAMA_BASE_URL
 ├── README.md            # This file
@@ -448,18 +413,6 @@ legal-analyzer/
 
 ---
 
-## Recommended `.gitignore`
-
-```
-.venv/
-__pycache__/
-*.pyc
-.env
-*.pdf
-*.txt
-.streamlit/secrets.toml
-```
-
----
+#
 
 *Built for the HPE Gen AI for GenZ project.*
