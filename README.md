@@ -1,4 +1,5 @@
 # Legal Document Analyzer
+## Special focus on token compression
 
 > **AI-assisted legal document review. Please note that this is not a substitute for qualified legal advice**
 
