@@ -1,23 +1,21 @@
 # app2.py
-
+# simple activity file
 
 import random
 
-def random_number():
-    num = random.randint(1, 50)
-    print("Random number is:", num)
-    return num
+def generate():
+    number = random.randint(1, 100)
+    print("Generated:", number)
+    return number
 
-def check_even_odd(n):
+def check(n):
     if n % 2 == 0:
-        print("Number is even")
+        print("Even number")
     else:
-        print("Number is odd")
+        print("Odd number")
 
 if __name__ == "__main__":
-    print("Running app2 file...")
-    
-    value = random_number()
-    check_even_odd(value)
-
-    print("Program finished")
+    print("Program started")
+    val = generate()
+    check(val)
+    print("Done")
