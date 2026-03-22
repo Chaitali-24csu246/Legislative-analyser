@@ -1,3 +1,12 @@
+---
+title: Legislative Analyser
+emoji: ⚖️
+colorFrom: gray
+colorTo: yellow
+sdk: docker
+pinned: false
+---
+
 # Legal Document Analyzer
 ## Special focus on token compression
 
