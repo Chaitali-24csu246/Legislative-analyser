@@ -7,7 +7,7 @@ sdk: docker
 pinned: false
 ---
 # Legal Document Analyzer
-## Special focus on token compression
+## Special focus on token compression. USE APP2.py
 
 > **AI-assisted legal document review. Please note that this is not a substitute for qualified legal advice**
 
